@@ -18,6 +18,10 @@ const App = () => {
   const getApiUrl = (endpoint) => `/api/${endpoint}`;
 
   const fetchProductInfo = async (decodedText) => {
+    // Чистим код от лишних символов (иногда прилетают невидимые знаки)
+    const cleanText = decodedText.trim();
+    if (!cleanText) return;
+
     setLoading(true);
     setResult(null);
     setError(null);
@@ -27,7 +31,7 @@ const App = () => {
       const response = await fetch(getApiUrl('scan-text'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: decodedText }),
+        body: JSON.stringify({ text: cleanText }),
       });
 
       const data = await response.json();
@@ -43,52 +47,104 @@ const App = () => {
     }
   };
 
+  // Помощник для улучшения изображения перед распознаванием
+  const processCanvas = (image, filterType) => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = image.width;
+    canvas.height = image.height;
+    ctx.drawImage(image, 0, 0);
+
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imageData.data;
+
+    if (filterType === 'grayscale-contrast') {
+      for (let i = 0; i < data.length; i += 4) {
+        // Grayscale
+        const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
+        // Contrast boost
+        const contrast = 1.5; // Коэффициент контрастности
+        const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
+        const newValue = factor * (avg - 128) + 128;
+        
+        data[i] = data[i+1] = data[i+2] = Math.max(0, Math.min(255, newValue));
+      }
+    } else if (filterType === 'threshold') {
+      for (let i = 0; i < data.length; i += 4) {
+        const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
+        const val = avg > 128 ? 255 : 0;
+        data[i] = data[i+1] = data[i+2] = val;
+      }
+    }
+
+    ctx.putImageData(imageData, 0, 0);
+    return canvas.toDataURL('image/jpeg', 0.9);
+  };
+
   const fetchProductInfoByImage = async (blob) => {
     setLoading(true);
     setResult(null);
     setError(null);
 
     try {
-      // 1. Пытаемся распознать локально через ZXing (чтобы не гонять картинки на сервер)
       const hints = new Map();
       hints.set(DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.DATA_MATRIX, BarcodeFormat.QR_CODE]);
       hints.set(DecodeHintType.TRY_HARDER, true);
       const reader = new BrowserMultiFormatReader(hints);
       
-      const imageUrl = URL.createObjectURL(blob);
-      try {
-        const result = await reader.decodeFromImageUrl(imageUrl);
-        URL.revokeObjectURL(imageUrl);
-        if (result) {
-          console.log("Local decode success:", result.getText());
-          await fetchProductInfo(result.getText());
-          return;
+      const originalUrl = URL.createObjectURL(blob);
+      const img = new Image();
+      
+      const tryDecode = async (src) => {
+        try {
+          const res = await reader.decodeFromImageUrl(src);
+          return res ? res.getText() : null;
+        } catch (e) {
+          return null;
         }
-      } catch (decodeErr) {
-        console.log("Local decode failed, trying server...", decodeErr);
-        URL.revokeObjectURL(imageUrl);
+      };
+
+      // 1. Пытаемся распознать оригинал
+      let decodedText = await tryDecode(originalUrl);
+
+      // 2. Если не вышло — пробуем улучшить (ЧБ + Контраст)
+      if (!decodedText) {
+        console.log("Original failed, applying filters...");
+        await new Promise((resolve) => {
+          img.onload = resolve;
+          img.src = originalUrl;
+        });
+
+        const filteredUrl = processCanvas(img, 'grayscale-contrast');
+        decodedText = await tryDecode(filteredUrl);
+        
+        // 3. Если всё еще нет — пробуем жесткий порог (Threshold)
+        if (!decodedText) {
+          const thresholdUrl = processCanvas(img, 'threshold');
+          decodedText = await tryDecode(thresholdUrl);
+        }
       }
 
-      // 2. Если локально не вышло — пробуем сервер (на Netlify здесь будет заглушка или прокси)
-      const formData = new FormData();
-      formData.append('file', blob, 'snapshot.jpg');
+      URL.revokeObjectURL(originalUrl);
 
-      const response = await fetch(getApiUrl('scan'), {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (response.status === 501) {
-        throw new Error("Распознавание по фото недоступно. Укажите код текстом или используйте камеру точнее.");
-      }
-
-      const data = await response.json();
-      if (data.success) {
-        setResult(data);
-        stopScanner();
+      if (decodedText) {
+        console.log("Decode success:", decodedText);
+        await fetchProductInfo(decodedText);
       } else {
-        setError(data.error || "Код на снимке не распознан");
-        setIsScanning(false);
+        // Финальный фолбек на сервер (который на Netlify выдаст 501, но даст понять пользователю)
+        const formData = new FormData();
+        formData.append('file', blob, 'snapshot.jpg');
+        const response = await fetch(getApiUrl('scan'), { method: 'POST', body: formData });
+        if (response.status === 501) {
+          throw new Error("Код не распознан. Попробуйте сделать фото крупнее и при хорошем свете.");
+        }
+        const data = await response.json();
+        if (data.success) {
+          setResult(data);
+          stopScanner();
+        } else {
+          setError(data.error || "Код на снимке не распознан");
+        }
       }
     } catch (err) {
       setError('Ошибка: ' + err.message);
