@@ -315,6 +315,17 @@ const App = () => {
                   <p>Остаток: {item.quantity} шт.</p>
                   {item.expDate && <p style={{fontSize: '12px', opacity: 0.6}}>До {item.expDate}</p>}
                 </div>
+                <button 
+                  className="delete-med-btn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if(window.confirm(`Удалить ${item.name}?`)) {
+                      saveKit(kit.filter(k => k.id !== item.id));
+                    }
+                  }}
+                >
+                  <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" strokeWidth="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/></svg>
+                </button>
               </div>
             );
           })}
@@ -400,18 +411,30 @@ const App = () => {
         ) : (
           <div className="med-list">
             {intakes.sort((a,b) => a.time.localeCompare(b.time)).map(item => (
-              <div key={item.id} className={`med-card ${item.taken ? 'taken' : ''}`} onClick={() => toggleIntake(item.id)} style={{marginBottom:'12px'}}>
-                <div className="med-info">
+              <div key={item.id} className={`med-card ${item.taken ? 'taken' : ''}`} style={{marginBottom:'12px'}}>
+                <div className="med-info" onClick={() => toggleIntake(item.id)}>
                   <div style={{display:'flex', justifyContent:'space-between'}}>
                     <h3>{item.name}</h3>
                     <div style={{opacity: 0.5}}>{item.time === "00:00" ? "-- : --" : item.time}</div>
                   </div>
                   <p>Остаток: {kit.find(k => k.id === item.medId)?.quantity || 0} шт.</p>
                 </div>
-                <div className="med-actions" style={{marginLeft:'16px'}}>
-                   <div className="check-btn">
+                <div className="med-actions" style={{marginLeft:'16px', display:'flex', alignItems:'center', gap:'8px'}}>
+                   <div className="check-btn" onClick={() => toggleIntake(item.id)}>
                     {item.taken ? '✓' : ''}
                   </div>
+                  <button 
+                    className="delete-med-btn" 
+                    style={{width:'32px', height:'32px', borderRadius:'10px', marginLeft:0}}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if(window.confirm('Удалить этот прием?')) {
+                        saveIntakes(intakes.filter(idx => idx.id !== item.id));
+                      }
+                    }}
+                  >
+                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" strokeWidth="2.5"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/></svg>
+                  </button>
                 </div>
               </div>
             ))}

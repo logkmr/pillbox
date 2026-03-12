@@ -526,3 +526,23 @@ body {
   margin-bottom: 4px;
 }
 
+.delete-med-btn {
+  background: var(--status-error-bg);
+  color: var(--status-error-text);
+  border: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  margin-left: 12px;
+  transition: transform 0.2s, background 0.2s;
+}
+
+.delete-med-btn:active {
+  transform: scale(0.9);
+  background: #ffdada;
+}
+
