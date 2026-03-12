@@ -1,0 +1,1185 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Моя Аптечка - Pastel Gradient</title>
+    <style>
+        :root {
+            /* ИСПРАВЛЕНА ОШИБКА ЗДЕСЬ: убрал var() из объявления переменной */
+            --bg-top: #FCECF3; 
+            --bg-bottom: #E3F8EE; 
+            --card-bg: rgba(255, 255, 255, 0.7); 
+            --text-dark: #1A1A1A;
+            --text-gray: #666666;
+            --accent: #000000; 
+            --radius-md: 16px;
+            --radius-lg: 24px;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Display', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #333; 
+            display: flex;
+            justify-content: center;
+            -webkit-tap-highlight-color: transparent; 
+            overflow: hidden; 
+        }
+
+        .app {
+            width: 100%;
+            max-width: 400px;
+            height: 100dvh; 
+            /* ИСПРАВЛЕНО: теперь градиент правильно использует переменные */
+            background: linear-gradient(180deg, var(--bg-top) 0%, var(--bg-bottom) 100%);
+            position: relative;
+            box-shadow: 0 0 40px rgba(0,0,0,0.3);
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Шапка */
+        .header {
+            padding: 36px 24px 12px;
+            text-align: left;
+            flex-shrink: 0;
+        }
+
+        .header-top-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .greeting h1 { margin: 0; font-size: 26px; color: var(--text-dark); font-weight: 600; }
+        .greeting p { margin: 6px 0 0; font-size: 14px; color: var(--text-gray); }
+
+        .header-profile-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 999px;
+            border: none;
+            background: rgba(255,255,255,0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .header-profile-btn svg {
+            width: 22px;
+            height: 22px;
+            stroke: var(--accent);
+            stroke-width: 2;
+            fill: none;
+        }
+
+        .top-search {
+            margin-top: 16px;
+        }
+
+        .top-search input {
+            width: 100%;
+            padding: 10px 14px;
+            border-radius: 999px;
+            border: 1px solid rgba(0,0,0,0.06);
+            background: rgba(255,255,255,0.8);
+            font-size: 14px;
+            font-family: inherit;
+            box-sizing: border-box;
+            outline: none;
+        }
+
+        .top-search input::placeholder {
+            color: var(--text-gray);
+        }
+
+        /* Список карточек */
+        .med-list {
+            padding: 10px 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            overflow-y: auto;
+            flex-grow: 1;
+            padding-bottom: 140px; 
+        }
+
+        .empty-state {
+            margin-top: 40px;
+            text-align: center;
+            color: var(--text-gray);
+            font-size: 14px;
+        }
+
+        .empty-state h2 {
+            margin: 0 0 8px;
+            font-size: 18px;
+            color: var(--text-dark);
+            font-weight: 600;
+        }
+
+        .empty-state p {
+            margin: 0 0 16px;
+        }
+
+        /* Дизайн карточек */
+        .med-card {
+            background-color: var(--card-bg);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-radius: var(--radius-md);
+            padding: 24px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+            border: 1px solid rgba(255,255,255,0.6);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+
+        .med-card.taken {
+            opacity: 0.5;
+            background-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .med-info { flex-grow: 1; cursor: pointer; }
+        .med-info h3 { margin: 0; font-size: 20px; color: var(--text-dark); font-weight: 600; }
+        .med-info p { margin: 6px 0 0; font-size: 14px; color: var(--text-gray); }
+
+        .med-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 12px; }
+        .med-time { font-weight: 600; font-size: 16px; color: var(--text-dark); }
+
+        .check-btn {
+            width: 32px; height: 32px; border-radius: 50%;
+            border: 2px solid var(--text-gray); background: transparent;
+            cursor: pointer; display: flex; justify-content: center; align-items: center;
+            color: transparent; transition: all 0.2s;
+        }
+        .med-card.taken .check-btn { background: #10B981; border-color: #10B981; color: white; }
+
+        /* НИЖНЕЕ МЕНЮ */
+        .bottom-nav {
+            position: absolute;
+            bottom: 30px;
+            left: 24px;
+            right: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            column-gap: 32px;
+            z-index: 10;
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            flex: 1;
+        }
+
+        .nav-label {
+            font-size: 11px;
+            color: var(--text-gray);
+        }
+
+        .nav-icon {
+            width: 60px; 
+            height: 60px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: transform 0.2s;
+        }
+        .nav-icon:active { transform: scale(0.9); }
+        .nav-icon svg { 
+            width: 36px; 
+            height: 36px; 
+            stroke: var(--accent); stroke-width: 2; fill: none; 
+        }
+
+        .nav-fab {
+            width: 68px; 
+            height: 68px;
+            background: #FFFFFF; 
+            border: none;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 32px; 
+            color: var(--accent);
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.12); 
+        }
+        .nav-fab:active { background: #F3F4F6; transform: scale(0.95); }
+
+        /* ВЫЕЗЖАЮЩИЕ ПАНЕЛИ */
+        .sheet {
+            position: absolute;
+            bottom: -100%;
+            left: 0;
+            width: 100%;
+            height: 88%;
+            background-color: #FFFFFF;
+            border-top-left-radius: var(--radius-lg);
+            border-top-right-radius: var(--radius-lg);
+            box-shadow: 0 -10px 40px rgba(0,0,0,0.1);
+            transition: bottom 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            z-index: 20;
+            padding: 30px 24px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .sheet.active { bottom: 0; }
+        .sheet-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+        .sheet-header h2 { margin: 0; font-size: 22px; font-weight: 600; color: var(--text-dark); }
+        .close-btn { background: #F3F4F6; border: none; width: 36px; height: 36px; border-radius: 50%; font-size: 20px; color: var(--text-gray); cursor: pointer; }
+
+        .form-group { display: flex; flex-direction: column; gap: 16px; }
+        .input-block { display: flex; flex-direction: column; gap: 8px; }
+        .input-block label { font-size: 14px; color: var(--text-gray); }
+        .input-block input, .input-block select, .input-block textarea {
+            padding: 16px; border: 1px solid #E5E7EB; border-radius: 12px;
+            font-size: 16px; font-family: inherit; background: #F9FAFB; width: 100%; box-sizing: border-box;
+        }
+        .btn-primary { background: var(--text-dark); color: white; border: none; padding: 16px; border-radius: 12px; font-weight: 600; font-size: 16px; cursor: pointer; margin-top: 10px; width: 100%; }
+
+        .data-row { display: flex; justify-content: space-between; margin-bottom: 15px; border-bottom: 1px solid #F3F4F6; padding-bottom: 10px;}
+        .data-label { color: var(--text-gray); font-size: 14px; }
+        .data-value { font-weight: 600; text-align: right; max-width: 60%; }
+
+        .profile-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            gap: 16px;
+        }
+
+        .profile-main {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 0;
+        }
+
+        .profile-avatar {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            border: none;
+            background: #E5E7EB;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            font-weight: 600;
+            color: #9CA3AF;
+            overflow: hidden;
+            cursor: pointer;
+            padding: 0;
+            flex-shrink: 0;
+        }
+
+        .profile-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .profile-edit-btn {
+            background: none;
+            border: none;
+            color: #10B981;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .profile-avatar-input {
+            display: none;
+        }
+
+        /* Сканер Data Matrix */
+        .scanner-preview {
+            position: relative;
+            border-radius: 16px;
+            overflow: hidden;
+            background: #000;
+            margin-bottom: 16px;
+        }
+
+        .scanner-preview video {
+            width: 100%;
+            height: auto;
+            display: block;
+            background: #000;
+        }
+
+        .scanner-info {
+            font-size: 14px;
+            color: var(--text-gray);
+            margin-bottom: 12px;
+        }
+
+        .scanner-result {
+            background: #F9FAFB;
+            border-radius: 12px;
+            padding: 12px 14px;
+            font-size: 14px;
+            word-break: break-all;
+            border: 1px solid #E5E7EB;
+        }
+
+        /* Поиск лекарства в интернет‑аптеках */
+        .search-actions {
+            margin-top: 12px;
+        }
+
+        .search-hint {
+            font-size: 13px;
+            color: var(--text-gray);
+            margin-top: 8px;
+        }
+
+        .search-results {
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .search-results a {
+            display: block;
+            text-decoration: none;
+            padding: 12px 14px;
+            border-radius: 12px;
+            background: #F9FAFB;
+            border: 1px solid #E5E7EB;
+            font-size: 14px;
+            color: var(--text-dark);
+        }
+
+        .search-results a span {
+            display: block;
+            font-size: 12px;
+            color: var(--text-gray);
+            margin-top: 4px;
+        }
+
+        /* Карта аптек */
+        .map-container {
+            position: relative;
+            width: 100%;
+            flex: 1;
+            border-radius: 16px;
+            overflow: hidden;
+            background: #E5E7EB;
+            margin-top: 12px;
+        }
+
+        .map-container iframe {
+            border: 0;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app">
+        <header class="header">
+            <div class="header-top-row">
+                <div class="greeting">
+                    <h1 id="mainGreeting">Привет!</h1>
+                    <p>Не забудьте принять лекарства</p>
+                </div>
+                <button class="header-profile-btn" onclick="openProfile()">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                </button>
+            </div>
+            <div class="top-search">
+                <input 
+                    type="text" 
+                    id="topSearchInput" 
+                    placeholder="Поиск по аптечке" 
+                    oninput="filterMedList()"
+                >
+            </div>
+        </header>
+
+        <main class="med-list" id="medList">
+            <button class="btn-primary" onclick="openAddIntake()" style="margin-bottom: 12px;">Добавить приём лекарства</button>
+            <div id="emptyState" class="empty-state">
+                <h2>Сегодня ещё нет приёмов</h2>
+                <p>Добавьте первый приём лекарства, чтобы отслеживать, что вы приняли.</p>
+            </div>
+        </main>
+
+        <nav class="bottom-nav">
+            <div class="nav-item">
+                <button class="nav-icon" onclick="openSearch()">
+                    <svg viewBox="0 0 24 24">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                </button>
+                <span class="nav-label">Поиск</span>
+            </div>
+            
+            <div class="nav-item" style="flex: 0;">
+                <button class="nav-fab" onclick="openScanner()">+</button>
+                <span class="nav-label">Сканер</span>
+            </div>
+            
+            <div class="nav-item">
+                <button class="nav-icon" onclick="openMyKit()">
+                    <svg viewBox="0 0 24 24">
+                        <rect x="3" y="7" width="18" height="12" rx="2" ry="2"></rect>
+                        <path d="M9 7V6a3 3 0 0 1 3-3h0a3 3 0 0 1 3 3v1"></path>
+                        <line x1="12" y1="11" x2="12" y2="15"></line>
+                        <line x1="10" y1="13" x2="14" y2="13"></line>
+                    </svg>
+                </button>
+                <span class="nav-label">Моя аптечка</span>
+            </div>
+        </nav>
+
+        <div class="sheet" id="profileSheet">
+            <div class="sheet-header">
+                <h2>Профиль</h2>
+                <button class="close-btn" onclick="closeProfile()">×</button>
+            </div>
+
+            <div id="userDisplay">
+                <div class="profile-header">
+                    <div class="profile-main">
+                        <div class="profile-avatar">
+                            <span id="avatarInitials">П</span>
+                            <img id="avatarImage" alt="Аватар" style="display:none;">
+                        </div>
+                        <strong style="font-size: 24px;" class="profile-name" id="displayName">Имя не указано</strong>
+                    </div>
+                    <button class="profile-edit-btn" onclick="toggleProfileEdit()">Изменить</button>
+                </div>
+                <div class="data-row"><span class="data-label">Имя пользователя</span><span class="data-value" id="displayUsername" style="color: #10B981;">@user</span></div>
+                <div class="data-row"><span class="data-label">Пол</span><span class="data-value" id="displayGender">—</span></div>
+                <div class="data-row"><span class="data-label">Дата рождения</span><span class="data-value" id="displayDob">—</span></div>
+                <div class="data-row" style="flex-direction: column; border: none;">
+                    <span class="data-label" style="margin-bottom: 5px;">Заболевания / Аллергии</span>
+                    <span class="data-value" id="displayDiseases" style="text-align: left; max-width: 100%;">—</span>
+                </div>
+            </div>
+
+            <div id="userForm" class="form-group" style="display: none;">
+                <div class="input-block">
+                    <label>Настоящее Имя</label>
+                    <input type="text" id="inputName">
+                </div>
+                <div class="input-block">
+                    <label>Имя пользователя (Никнейм)</label>
+                    <input type="text" id="inputUsername" placeholder="@nickname">
+                </div>
+                <div class="input-block">
+                    <label>Пол</label>
+                    <select id="inputGender">
+                        <option value="Не указан">Не указан</option>
+                        <option value="Мужской">Мужской</option>
+                        <option value="Женский">Женский</option>
+                    </select>
+                </div>
+                <div class="input-block">
+                    <label>Дата рождения</label>
+                    <input type="date" id="inputDob">
+                </div>
+                <div class="input-block">
+                    <label>Заболевания</label>
+                    <textarea id="inputDiseases"></textarea>
+                </div>
+                <button class="btn-primary" onclick="saveProfile()">Сохранить</button>
+            </div>
+        </div>
+
+        <div class="sheet" id="intakeSheet">
+            <div class="sheet-header">
+                <h2>Новый приём лекарства</h2>
+                <button class="close-btn" onclick="closeAddIntake()">×</button>
+            </div>
+            <div class="form-group">
+                <div class="input-block">
+                    <label>Лекарство из аптечки</label>
+                    <select id="intake-from-kit">
+                        <option value="">В аптечке пока нет лекарств</option>
+                    </select>
+                </div>
+                <div class="input-block">
+                    <label>Сколько таблеток за приём</label>
+                    <input type="number" id="edit-inventory" placeholder="Например, 1 или 2">
+                </div>
+                <div class="input-block">
+                    <label>Время приема</label>
+                    <input type="time" id="edit-time">
+                </div>
+                <button class="btn-primary" onclick="saveIntake()">Добавить приём</button>
+            </div>
+        </div>
+
+        <div class="sheet" id="searchSheet">
+            <div class="sheet-header">
+                <h2>Найти лекарство</h2>
+                <button class="close-btn" onclick="closeSearch()">×</button>
+            </div>
+            <div class="input-block">
+                <label>Название лекарства</label>
+                <input id="searchInput" type="text" placeholder="Например, Парацетамол" style="border-radius: 12px;">
+            </div>
+            <div class="search-actions">
+                <button class="btn-primary" onclick="performOnlineSearch()">Найти в магазинах</button>
+                <div class="search-hint">
+                    Мы покажем ссылки на крупные интернет‑аптеки и маркетплейсы, где можно заказать это лекарство.
+                </div>
+            </div>
+            <div id="searchResults" class="search-results"></div>
+            <div class="search-actions">
+                <button class="btn-primary" style="margin-top: 20px;" onclick="openMap()">Показать аптеки на карте</button>
+            </div>
+        </div>
+
+        <div class="sheet" id="myKitSheet">
+            <div class="sheet-header">
+                <h2>Моя аптечка</h2>
+                <button class="close-btn" onclick="closeMyKit()">×</button>
+            </div>
+            <p style="color: var(--text-gray); font-size: 14px; margin-bottom: 12px;">
+                Здесь хранится полный список лекарств в вашей аптечке.
+            </p>
+            <button class="btn-primary" onclick="openAddKitMedicine()">Добавить лекарство</button>
+            <div id="kitEmptyState" class="empty-state" style="margin-top: 16px;">
+                <h2>В аптечке пока пусто</h2>
+                <p>Добавьте первое лекарство вручную или через сканер Data Matrix.</p>
+            </div>
+            <div id="myKitList" class="med-list" style="padding: 0; margin-top: 12px; padding-bottom: 0;"></div>
+        </div>
+
+        <div class="sheet" id="mapSheet">
+            <div class="sheet-header">
+                <h2>Аптеки рядом</h2>
+                <button class="close-btn" onclick="closeMap()">×</button>
+            </div>
+            <p style="color: var(--text-gray); font-size: 14px; margin-bottom: 8px;">
+                На карте показаны аптеки поблизости. Вы можете приближать, двигать карту и выбирать удобную аптеку.
+            </p>
+            <div class="map-container">
+                <iframe 
+                    src="https://yandex.ru/map-widget/v1/?text=%D0%B0%D0%BF%D1%82%D0%B5%D0%BA%D0%B0" 
+                    allowfullscreen
+                    loading="lazy">
+                </iframe>
+            </div>
+        </div>
+
+        <div class="sheet" id="kitAddSheet">
+            <div class="sheet-header">
+                <h2>Новое лекарство</h2>
+                <button class="close-btn" onclick="closeAddKitMedicine()">×</button>
+            </div>
+            <div class="form-group">
+                <div class="input-block">
+                    <label>Название лекарства</label>
+                    <input type="text" id="kit-name" placeholder="Например, Парацетамол">
+                </div>
+                <div class="input-block">
+                    <label>Количество / остаток</label>
+                    <input type="number" id="kit-quantity" placeholder="Сколько упаковок или таблеток">
+                </div>
+                <button class="btn-primary" onclick="addKitMedicine()">Добавить в аптечку</button>
+            </div>
+        </div>
+
+        <div class="sheet" id="scannerSheet">
+            <div class="sheet-header">
+                <h2>Сканирование Data Matrix</h2>
+                <button class="close-btn" onclick="closeScanner()">×</button>
+            </div>
+            <div class="scanner-info">
+                Наведите камеру на Data Matrix‑код с упаковки лекарства. 
+                Сканирование может занять несколько секунд.
+            </div>
+            <div class="scanner-preview">
+                <video id="scannerVideo" playsinline></video>
+            </div>
+            <div class="scanner-info">
+                Распознанное содержимое кода:
+            </div>
+            <div id="scannerResult" class="scanner-result">
+                Пока ничего не отсканировано.
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Библиотека ZXing для сканирования штрих‑кодов (в т.ч. Data Matrix) -->
+    <script src="https://unpkg.com/@zxing/library@0.20.0"></script>
+
+    <script>
+        let currentAvatar = "";
+        let scannerCodeReader = null;
+        let scannerActive = false;
+
+        let medIdCounter = 0;
+        let kitItems = [];
+
+        function getDefaultProfile() {
+            return {
+                name: "Пользователь",
+                username: "@user",
+                dob: "",
+                gender: "Не указан",
+                diseases: "Нет данных",
+                avatar: ""
+            };
+        }
+
+        function markAsTaken(cardId, inventoryId) {
+            const card = document.getElementById(cardId);
+            const isTaken = card.classList.contains('taken');
+            const inventorySpan = document.getElementById(inventoryId);
+            let count = parseInt(inventorySpan.innerText);
+
+            if (!isTaken) {
+                card.classList.add('taken');
+                if (count > 0) { inventorySpan.innerText = count - 1; }
+            } else {
+                card.classList.remove('taken');
+                inventorySpan.innerText = count + 1;
+            }
+        }
+
+        // Логика профиля
+        function openProfile() { document.getElementById('profileSheet').classList.add('active'); }
+        function closeProfile() { document.getElementById('profileSheet').classList.remove('active'); document.getElementById('userForm').style.display = 'none'; document.getElementById('userDisplay').style.display = 'block';}
+        function toggleProfileEdit() { document.getElementById('userDisplay').style.display = 'none'; document.getElementById('userForm').style.display = 'flex'; }
+
+        function saveProfile() {
+            const userData = {
+                name: document.getElementById('inputName').value || "Пользователь",
+                username: document.getElementById('inputUsername').value || "@user",
+                dob: document.getElementById('inputDob').value,
+                gender: document.getElementById('inputGender').value,
+                diseases: document.getElementById('inputDiseases').value || "Нет данных",
+                avatar: currentAvatar || ""
+            };
+            localStorage.setItem('pastelProfile', JSON.stringify(userData));
+            updateProfileUI(userData);
+            document.getElementById('userForm').style.display = 'none';
+            document.getElementById('userDisplay').style.display = 'block';
+        }
+
+        function updateProfileUI(data) {
+            currentAvatar = data.avatar || "";
+            document.getElementById('displayName').innerText = data.name;
+            document.getElementById('displayUsername').innerText = data.username || "@user"; 
+            
+            let formattedDob = "—";
+            if (data.dob) {
+                const dateObj = new Date(data.dob);
+                formattedDob = dateObj.toLocaleDateString('ru-RU');
+            }
+            document.getElementById('displayDob').innerText = formattedDob;
+            document.getElementById('displayGender').innerText = data.gender;
+            document.getElementById('displayDiseases').innerText = data.diseases;
+            document.getElementById('mainGreeting').innerText = `Привет, ${data.name}!`;
+
+            const avatarImage = document.getElementById('avatarImage');
+            const avatarInitials = document.getElementById('avatarInitials');
+            if (avatarImage && avatarInitials) {
+                if (currentAvatar) {
+                    avatarImage.src = currentAvatar;
+                    avatarImage.style.display = 'block';
+                    avatarInitials.style.display = 'none';
+                } else {
+                    avatarImage.src = '';
+                    avatarImage.style.display = 'none';
+                    const baseName = data.name && data.name !== "Пользователь" ? data.name : "П";
+                    avatarInitials.textContent = baseName.trim().charAt(0).toUpperCase();
+                    avatarInitials.style.display = 'block';
+                }
+            }
+
+            document.getElementById('inputName').value = data.name !== "Пользователь" ? data.name : "";
+            document.getElementById('inputUsername').value = data.username !== "@user" ? data.username : "";
+            document.getElementById('inputDob').value = data.dob;
+            document.getElementById('inputGender').value = data.gender;
+            document.getElementById('inputDiseases').value = data.diseases !== "Нет данных" ? data.diseases : "";
+        }
+
+        window.onload = function() {
+            const savedData = localStorage.getItem('pastelProfile');
+            if (savedData) {
+                updateProfileUI(JSON.parse(savedData));
+            } else {
+                updateProfileUI(getDefaultProfile());
+            }
+
+            const medListEl = document.getElementById('medList');
+            if (medListEl) {
+                medListEl.addEventListener('touchstart', handleIntakeTouchStart, { passive: true });
+                medListEl.addEventListener('touchend', handleIntakeTouchEnd, { passive: true });
+            }
+        };
+
+        // Добавление нового приёма лекарства
+        function openAddIntake() {
+            const sheet = document.getElementById('intakeSheet');
+            if (!sheet) return;
+
+            // Если в аптечке нет лекарств — сначала просим добавить их
+            if (!kitItems.length) {
+                alert('Сначала добавьте лекарство в раздел «Моя аптечка», затем вы сможете настроить приём.');
+                openMyKit();
+                openAddKitMedicine();
+                return;
+            }
+
+            document.getElementById('edit-inventory').value = '';
+            document.getElementById('edit-time').value = '';
+            refreshIntakeKitSelect();
+            sheet.classList.add('active');
+        }
+
+        function closeAddIntake() {
+            const sheet = document.getElementById('intakeSheet');
+            if (!sheet) return;
+            sheet.classList.remove('active');
+        }
+
+        function escapeHtml(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function saveIntake() {
+            const invInput = document.getElementById('edit-inventory');
+            const timeInput = document.getElementById('edit-time');
+            const list = document.getElementById('medList');
+            const emptyState = document.getElementById('emptyState');
+            const fromKitSelect = document.getElementById('intake-from-kit');
+
+            if (!invInput || !timeInput || !list) return;
+
+            if (!fromKitSelect || !fromKitSelect.value) {
+                alert('Выберите лекарство из аптечки, чтобы добавить приём.');
+                return;
+            }
+
+            const rawName = fromKitSelect.value;
+            const rawInventory = invInput.value.trim();
+            const rawTime = timeInput.value;
+
+            const name = rawName || 'Без названия';
+            const inventory = rawInventory !== '' ? parseInt(rawInventory, 10) : 0;
+            const time = rawTime || '--:--';
+
+            medIdCounter += 1;
+            const cardId = 'card-' + medIdCounter;
+            const inventoryId = 'ui-med-inv-' + medIdCounter;
+
+            const cardHtml = `
+                <div class="med-card intake-card" id="${cardId}">
+                    <div class="med-info">
+                        <h3>${escapeHtml(name)}</h3>
+                        <p>Осталось: <span id="${inventoryId}">${isNaN(inventory) ? 0 : inventory}</span> шт.</p>
+                    </div>
+                    <div class="med-actions">
+                        <span class="med-time">${escapeHtml(time)}</span>
+                        <button class="check-btn" onclick="markAsTaken('${cardId}', '${inventoryId}')">✓</button>
+                    </div>
+                </div>
+            `;
+
+            if (emptyState) {
+                emptyState.style.display = 'none';
+            }
+
+            list.insertAdjacentHTML('beforeend', cardHtml);
+            closeAddIntake();
+        }
+
+        // Логика поиска
+        function openSearch() {
+            const sheet = document.getElementById('searchSheet');
+            const input = document.getElementById('searchInput');
+            const results = document.getElementById('searchResults');
+            sheet.classList.add('active');
+            if (results) {
+                results.innerHTML = '';
+            }
+            if (input) {
+                input.value = '';
+                setTimeout(() => input.focus(), 50);
+            }
+        }
+
+        function closeSearch() {
+            document.getElementById('searchSheet').classList.remove('active');
+        }
+
+        function performOnlineSearch() {
+            const input = document.getElementById('searchInput');
+            const results = document.getElementById('searchResults');
+            if (!input || !results) return;
+
+            const query = input.value.trim();
+            if (!query) {
+                results.innerHTML = '<div style="font-size: 14px; color: #6B7280;">Введите название лекарства, чтобы найти его в магазинах.</div>';
+                return;
+            }
+
+            const encoded = encodeURIComponent(query);
+
+            const links = [
+                {
+                    name: 'Аптека.ру',
+                    url: 'https://apteka.ru/search/?q=' + encoded,
+                    note: 'Крупная сеть интернет‑аптек по России'
+                },
+                {
+                    name: 'Яндекс Маркет',
+                    url: 'https://market.yandex.ru/search?text=' + encoded + '+лекарство',
+                    note: 'Поиск по аптекам и магазинам в вашем регионе'
+                },
+                {
+                    name: 'OZON',
+                    url: 'https://www.ozon.ru/search/?text=' + encoded,
+                    note: 'Маркетплейс, в том числе раздел с аптекой'
+                },
+                {
+                    name: 'Google',
+                    url: 'https://www.google.com/search?q=' + encodeURIComponent(query + ' купить лекарство'),
+                    note: 'Общий поиск по аптекам и интернет‑магазинам'
+                }
+            ];
+
+            results.innerHTML = links.map(link => (
+                '<a href="' + link.url + '" target="_blank" rel="noopener noreferrer">' +
+                    link.name +
+                    '<span>' + link.note + '</span>' +
+                '</a>'
+            )).join('');
+        }
+
+        // Экран "Моя аптечка"
+        function openMyKit() {
+            const sheet = document.getElementById('myKitSheet');
+            if (sheet) {
+                sheet.classList.add('active');
+            }
+        }
+
+        function closeMyKit() {
+            const sheet = document.getElementById('myKitSheet');
+            if (sheet) {
+                sheet.classList.remove('active');
+            }
+        }
+
+        function openAddKitMedicine() {
+            const sheet = document.getElementById('kitAddSheet');
+            const nameInput = document.getElementById('kit-name');
+            const qtyInput = document.getElementById('kit-quantity');
+            if (sheet) {
+                sheet.classList.add('active');
+            }
+            if (nameInput) nameInput.value = '';
+            if (qtyInput) qtyInput.value = '';
+            if (nameInput) {
+                setTimeout(() => nameInput.focus(), 50);
+            }
+        }
+
+        function closeAddKitMedicine() {
+            const sheet = document.getElementById('kitAddSheet');
+            if (sheet) {
+                sheet.classList.remove('active');
+            }
+        }
+
+        function addKitMedicine() {
+            const nameInput = document.getElementById('kit-name');
+            const qtyInput = document.getElementById('kit-quantity');
+            const list = document.getElementById('myKitList');
+            const empty = document.getElementById('kitEmptyState');
+
+            if (!nameInput || !qtyInput || !list) return;
+
+            const rawName = nameInput.value.trim();
+            const rawQty = qtyInput.value.trim();
+            if (!rawName && !rawQty) return;
+
+            const name = rawName || 'Без названия';
+            const qty = rawQty || '—';
+
+            const item = {
+                id: kitItems.length + 1,
+                name,
+                qty
+            };
+            kitItems.push(item);
+
+            const itemHtml = `
+                <div class="med-card" data-kit-id="${item.id}">
+                    <div class="med-info">
+                        <h3>${escapeHtml(name)}</h3>
+                        <p>Остаток: ${escapeHtml(qty.toString())}</p>
+                    </div>
+                </div>
+            `;
+
+            if (empty) {
+                empty.style.display = 'none';
+            }
+
+            list.insertAdjacentHTML('beforeend', itemHtml);
+            nameInput.value = '';
+            qtyInput.value = '';
+            closeAddKitMedicine();
+            refreshIntakeKitSelect();
+        }
+
+        function refreshIntakeKitSelect() {
+            const select = document.getElementById('intake-from-kit');
+            if (!select) return;
+
+            // Очистить текущие опции
+            while (select.firstChild) {
+                select.removeChild(select.firstChild);
+            }
+
+            const placeholder = document.createElement('option');
+            if (!kitItems.length) {
+                placeholder.value = '';
+                placeholder.textContent = 'В аптечке пока нет лекарств';
+                placeholder.disabled = true;
+                placeholder.selected = true;
+                select.appendChild(placeholder);
+                return;
+            }
+
+            placeholder.value = '';
+            placeholder.textContent = 'Выберите лекарство из аптечки';
+            placeholder.disabled = true;
+            placeholder.selected = true;
+            select.appendChild(placeholder);
+
+            kitItems.forEach(item => {
+                const opt = document.createElement('option');
+                opt.value = item.name;
+                opt.textContent = item.name;
+                select.appendChild(opt);
+            });
+        }
+
+        // Свайп-влево для удаления приёмов
+        let intakeSwipeStartX = null;
+        let intakeSwipeStartY = null;
+        let intakeSwipeCard = null;
+
+        function handleIntakeTouchStart(event) {
+            const card = event.target.closest('.intake-card');
+            if (!card) return;
+            const touch = event.touches && event.touches[0];
+            if (!touch) return;
+            intakeSwipeCard = card;
+            intakeSwipeStartX = touch.clientX;
+            intakeSwipeStartY = touch.clientY;
+        }
+
+        function handleIntakeTouchEnd(event) {
+            if (!intakeSwipeCard || intakeSwipeStartX === null) {
+                resetIntakeSwipe();
+                return;
+            }
+            const touch = event.changedTouches && event.changedTouches[0];
+            if (!touch) {
+                resetIntakeSwipe();
+                return;
+            }
+            const dx = touch.clientX - intakeSwipeStartX;
+            const dy = touch.clientY - intakeSwipeStartY;
+
+            if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) && dx < 0) {
+                deleteIntakeCard(intakeSwipeCard);
+            }
+            resetIntakeSwipe();
+        }
+
+        function resetIntakeSwipe() {
+            intakeSwipeCard = null;
+            intakeSwipeStartX = null;
+            intakeSwipeStartY = null;
+        }
+
+        function deleteIntakeCard(card) {
+            const parent = card && card.parentNode;
+            if (!parent) return;
+            parent.removeChild(card);
+
+            if (!document.querySelector('.intake-card')) {
+                const emptyState = document.getElementById('emptyState');
+                if (emptyState) {
+                    emptyState.style.display = 'block';
+                }
+            }
+        }
+
+        // Карта аптек
+        function openMap() {
+            const sheet = document.getElementById('mapSheet');
+            if (sheet) {
+                sheet.classList.add('active');
+            }
+        }
+
+        function closeMap() {
+            const sheet = document.getElementById('mapSheet');
+            if (sheet) {
+                sheet.classList.remove('active');
+            }
+        }
+
+        // Поиск по аптечке (верхний инпут)
+        function filterMedList() {
+            const input = document.getElementById('topSearchInput');
+            const query = (input && input.value ? input.value : '').trim().toLowerCase();
+
+            const cards = document.querySelectorAll('.med-card');
+            cards.forEach(card => {
+                const titleEl = card.querySelector('h3');
+                const infoEl = card.querySelector('p');
+                const text = [
+                    titleEl ? titleEl.innerText : '',
+                    infoEl ? infoEl.innerText : ''
+                ].join(' ').toLowerCase();
+
+                if (!query || text.includes(query)) {
+                    card.style.display = '';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        }
+
+        // Логика сканера Data Matrix
+        async function openScanner() {
+            const sheet = document.getElementById('scannerSheet');
+            sheet.classList.add('active');
+            if (!scannerActive) {
+                await startScanner();
+            }
+        }
+
+        function closeScanner() {
+            const sheet = document.getElementById('scannerSheet');
+            sheet.classList.remove('active');
+            stopScanner();
+        }
+
+        async function startScanner() {
+            const videoElement = document.getElementById('scannerVideo');
+            const resultElement = document.getElementById('scannerResult');
+
+            if (!window.ZXing || !ZXing.BrowserMultiFormatReader) {
+                alert('Не удалось загрузить модуль сканирования. Проверьте интернет‑соединение.');
+                return;
+            }
+
+            if (!scannerCodeReader) {
+                scannerCodeReader = new ZXing.BrowserMultiFormatReader();
+            }
+
+            try {
+                const devices = await scannerCodeReader.listVideoInputDevices();
+                if (!devices || devices.length === 0) {
+                    alert('Камера не найдена. Разрешите доступ к камере и перезагрузите страницу.');
+                    return;
+                }
+
+                // Пытаемся найти основную (заднюю) камеру
+                let selectedDeviceId = devices[0].deviceId;
+                const backCamera = devices.find(d =>
+                    /back|rear|environment/i.test(d.label)
+                );
+                if (backCamera) {
+                    selectedDeviceId = backCamera.deviceId;
+                }
+
+                scannerActive = true;
+                resultElement.textContent = 'Сканирование запущено...';
+
+                scannerCodeReader.decodeFromVideoDevice(
+                    selectedDeviceId,
+                    videoElement,
+                    (result, err, controls) => {
+                        if (result) {
+                            handleScanResult(result.getText());
+                            // Останавливаем после первого успешного считывания
+                            try {
+                                if (controls) {
+                                    controls.stop();
+                                } else {
+                                    scannerCodeReader.reset();
+                                }
+                            } catch (e) {
+                                console.error(e);
+                            }
+                            scannerActive = false;
+                        } else if (err && !(err instanceof ZXing.NotFoundException)) {
+                            console.error(err);
+                        }
+                    }
+                );
+            } catch (e) {
+                console.error(e);
+                alert('Ошибка при доступе к камере. Убедитесь, что вы открыли страницу через HTTPS или localhost и разрешили доступ к камере.');
+            }
+        }
+
+        function stopScanner() {
+            if (scannerCodeReader) {
+                try {
+                    scannerCodeReader.reset();
+                } catch (e) {
+                    console.error(e);
+                }
+            }
+            scannerActive = false;
+        }
+
+        function handleScanResult(text) {
+            const resultElement = document.getElementById('scannerResult');
+            resultElement.textContent = text || 'Пустой результат.';
+            // В будущем здесь можно разобрать строку Data Matrix
+            // и автоматически заполнять карточку лекарства.
+        }
+    </script>
+</body>
+</html>

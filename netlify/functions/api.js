@@ -1,6 +1,10 @@
 
 export const handler = async (event, context) => {
-  const path = event.path.replace('/.netlify/functions/api', '');
+  // Более гибкое определение пути: берем только правую часть после /api или имени функции
+  const fullPath = event.path || '';
+  const path = fullPath.toLowerCase().replace(/^.*?\/(api|functions\/api)/, '');
+  
+  console.log(`[Function] Method: ${event.httpMethod}, FullPath: ${fullPath}, CleanPath: ${path}`);
   
   // CORS Headers
   const headers = {
@@ -14,7 +18,7 @@ export const handler = async (event, context) => {
   }
 
   // Роут для получения инфо по тексту (коду)
-  if (path === '/scan-text' && event.httpMethod === 'POST') {
+  if ((path === '/scan-text' || path === 'scan-text') && event.httpMethod === 'POST') {
     try {
       const { text } = JSON.parse(event.body);
       if (!text) {
@@ -58,7 +62,7 @@ export const handler = async (event, context) => {
   }
 
   // Роут для сканирования изображения (заглушка или легкая реализация)
-  if (path === '/scan' && event.httpMethod === 'POST') {
+  if ((path === '/scan' || path === 'scan') && event.httpMethod === 'POST') {
     return {
       statusCode: 501,
       headers,
