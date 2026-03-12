@@ -9,15 +9,24 @@ const STORAGE_KEYS = {
 };
 
 const DEFAULT_PROFILE = {
-  name: "Пользователь",
-  username: "@user",
+  name: "Артем",
+  phone: "+7",
   dob: "",
   gender: "Не указан",
-  diseases: "Нет данных",
+  diseases: "",
   avatar: ""
 };
 
 const getApiUrl = (endpoint) => `/api/${endpoint}`;
+
+const getStatus = (item) => {
+  if (!item.expDate || item.expDate === '—') return { label: 'В норме', class: 'status-normal' };
+  const exp = new Date(item.expDate.split('.').reverse().join('-'));
+  const now = new Date();
+  if (exp < now) return { label: 'Истек', class: 'status-expired' };
+  if (item.quantity <= 5) return { label: 'Мало', class: 'status-warning' };
+  return { label: 'В норме', class: 'status-normal' };
+};
 
 const decodeStatus = (status) => {
   const map = {
@@ -271,9 +280,19 @@ const App = () => {
 
   const renderDashboard = () => (
     <main className="main-content">
+      <div className="top-search">
+        <input 
+          type="text" 
+          placeholder="Поиск по аптечке" 
+          className="top-search-input"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+      </div>
+
       <div style={{display: 'flex', gap: '12px', marginBottom: '12px'}}>
         <button className="btn-primary" style={{flex: 1}} onClick={() => setActiveSheet('addMed')}>
-          Добавить вручную
+          Добавить лекарство
         </button>
       </div>
       
@@ -283,28 +302,22 @@ const App = () => {
           <p>Добавьте лекарства через сканер или вручную, чтобы они появились здесь.</p>
         </div>
       ) : (
-        <div className="fade-in" style={{display:'flex', flexDirection:'column', gap:'16px'}}>
-          {kit.map(item => (
-            <div key={item.id} className="med-card">
-              <div className="med-info">
-                <h3>{item.name}</h3>
-                <p>Остаток: {item.quantity} шт.</p>
-                {item.expDate && <p style={{fontSize: '12px', opacity: 0.8}}>Годен до: {item.expDate}</p>}
+        <div className="fade-in" style={{display:'flex', flexDirection:'column', gap:'12px'}}>
+          {kit.filter(item => item.name.toLowerCase().includes(searchQuery.toLowerCase())).map(item => {
+            const status = getStatus(item);
+            return (
+              <div key={item.id} className="med-card">
+                <div className="med-info">
+                  <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                    <h3>{item.name}</h3>
+                    <span className={`medicine-status-badge ${status.class}`}>{status.label}</span>
+                  </div>
+                  <p>Остаток: {item.quantity} шт.</p>
+                  {item.expDate && <p style={{fontSize: '12px', opacity: 0.6}}>До {item.expDate}</p>}
+                </div>
               </div>
-              <div className="med-actions">
-                <button 
-                  className="close-btn" 
-                  style={{background: 'none', fontSize: '24px'}} 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    saveKit(kit.filter(k => k.id !== item.id));
-                  }}
-                >
-                  ×
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </main>
@@ -352,46 +365,51 @@ const App = () => {
       {/* --- Sheets --- */}
 
       <Sheet id="profile" title="Профиль" active={activeSheet} onClose={() => setActiveSheet(null)}>
-        <div className="profile-header">
-           <div className="profile-main">
-             <div className="profile-avatar">
-               {profile.name.charAt(0)}
-             </div>
-             <strong style={{fontSize: '24px'}}>{profile.name}</strong>
-           </div>
+        <div className="profile-header-centered">
+          <div className="profile-avatar-large">
+            <svg viewBox="0 0 24 24" className="avatar-icon"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <div className="avatar-edit-icon">
+               <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" fill="none" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </div>
+          </div>
         </div>
-        <div className="data-row"><span className="data-label">Username</span><span className="data-value">{profile.username}</span></div>
-        <div className="data-row"><span className="data-label">Пол</span><span className="data-value">{profile.gender}</span></div>
-        <div className="form-group" style={{marginTop: '20px'}}>
+        
+        <div className="form-group" style={{marginTop: '24px'}}>
              <div className="input-block">
-               <label>Имя</label>
-               <input type="text" value={profile.name} onChange={e => saveProfile({...profile, name: e.target.value})} />
+               <label>Ваше имя</label>
+               <input type="text" value={profile.name} onChange={e => saveProfile({...profile, name: e.target.value})} placeholder="Имя" />
              </div>
              <div className="input-block">
-               <label>Заболевания / Аллергии</label>
-               <textarea value={profile.diseases} onChange={e => saveProfile({...profile, diseases: e.target.value})} />
+               <label>Номер телефона</label>
+               <input type="text" value={profile.phone || '+7'} onChange={e => saveProfile({...profile, phone: e.target.value})} placeholder="+7" />
              </div>
+             <div className="input-block">
+               <label>Аллергия / Заболевания</label>
+               <textarea value={profile.diseases} onChange={e => saveProfile({...profile, diseases: e.target.value})} placeholder="Описание" style={{height:'100px'}} />
+             </div>
+             <button className="btn-primary" onClick={() => setActiveSheet(null)}>Сохранить</button>
         </div>
       </Sheet>
 
-      <Sheet id="intakesList" title="График приёма" active={activeSheet} onClose={() => setActiveSheet(null)}>
-        <button className="btn-primary" style={{marginBottom: '20px'}} onClick={() => setActiveSheet('addIntake')}>Добавить в график</button>
+      <Sheet id="intakesList" title="Прием лекарств" active={activeSheet} onClose={() => setActiveSheet(null)}>
+        <button className="btn-primary" style={{marginBottom: '20px'}} onClick={() => setActiveSheet('addIntake')}>Добавить прием</button>
         {intakes.length === 0 ? (
           <div className="empty-state">
-            <h2>Расписание пусто</h2>
-            <p>Добавьте приём лекарства, чтобы отслеживать время.</p>
+            <p>Пока нету приемов</p>
           </div>
         ) : (
           <div className="med-list">
             {intakes.sort((a,b) => a.time.localeCompare(b.time)).map(item => (
-              <div key={item.id} className={`med-card ${item.taken ? 'taken' : ''}`} onClick={() => toggleIntake(item.id)}>
+              <div key={item.id} className={`med-card ${item.taken ? 'taken' : ''}`} onClick={() => toggleIntake(item.id)} style={{marginBottom:'12px'}}>
                 <div className="med-info">
-                  <h3>{item.name}</h3>
-                  <p>{item.count} шт.</p>
+                  <div style={{display:'flex', justifyContent:'space-between'}}>
+                    <h3>{item.name}</h3>
+                    <div style={{opacity: 0.5}}>{item.time === "00:00" ? "-- : --" : item.time}</div>
+                  </div>
+                  <p>Остаток: {kit.find(k => k.id === item.medId)?.quantity || 0} шт.</p>
                 </div>
-                <div className="med-actions">
-                  <div className="med-time">{item.time}</div>
-                  <div className="check-btn">
+                <div className="med-actions" style={{marginLeft:'16px'}}>
+                   <div className="check-btn">
                     {item.taken ? '✓' : ''}
                   </div>
                 </div>
@@ -404,21 +422,21 @@ const App = () => {
       <Sheet id="addMed" title="Новое лекарство" active={activeSheet} onClose={() => setActiveSheet(null)}>
         <div className="form-group">
           <div className="input-block">
-            <label>Название</label>
-            <input type="text" id="new-med-name" placeholder="Напр. Парацетамол" />
+            <label>Название лекарства</label>
+            <input type="text" id="new-med-name" placeholder="Например, парацетамол" />
           </div>
           <div className="input-block">
-            <label>Количество</label>
-            <input type="number" id="new-med-qty" placeholder="10" />
+            <label>Срок годности</label>
+            <input type="text" id="new-med-exp" placeholder="DD/MM/YYYY" />
           </div>
           <button className="btn-primary" onClick={() => {
             const name = document.getElementById('new-med-name').value;
-            const qty = document.getElementById('new-med-qty').value;
+            const exp = document.getElementById('new-med-exp').value;
             if(name) {
-              saveKit([...kit, { id: Date.now(), name, quantity: parseInt(qty || 0) }]);
+              saveKit([...kit, { id: Date.now(), name, quantity: 10, expDate: exp }]);
               setActiveSheet(null);
             }
-          }}>Сохранить</button>
+          }}>Добавить лекарство</button>
         </div>
       </Sheet>
 
@@ -448,21 +466,24 @@ const App = () => {
         </div>
       </Sheet>
 
-      <Sheet id="search" title="Поиск лекарств" active={activeSheet} onClose={() => setActiveSheet(null)}>
-        <div className="input-block" style={{flexDirection: 'row', gap: '8px'}}>
-          <input type="text" placeholder="Название..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
-          <button className="btn-primary" style={{margin:0, width:'auto', padding:'12px 20px'}} onClick={performSearch}>🔎</button>
+      <Sheet id="search" title="Поиск по аптекам" active={activeSheet} onClose={() => setActiveSheet(null)}>
+        <div className="form-group">
+          <div className="input-block">
+            <label>Название лекарства</label>
+            <input type="text" placeholder="Например, парацетамол" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+          </div>
+          <button className="btn-primary" onClick={performSearch}>Найти в магазинах</button>
         </div>
         
         <div style={{marginTop: '20px'}}>
+          {searchResults.length > 0 && <p style={{fontSize:'14px', marginBottom:'12px', opacity:0.6}}>Можно посмотреть на карте</p>}
           {searchResults.map((res, i) => (
             <a key={i} href={res.url} target="_blank" rel="noreferrer" className="external-link">
               <span>{res.name}</span>
-              <span>Найти {searchQuery} в аптеке</span>
             </a>
           ))}
-          <button className="btn-secondary-outline" style={{marginTop: '12px'}} onClick={() => setShowMap(!showMap)}>
-            {showMap ? 'Скрыть карту' : 'Аптеки рядом'}
+          <button className="btn-primary" onClick={() => setShowMap(!showMap)} style={{marginTop:'12px'}}>
+            {showMap ? 'Скрыть карту' : 'Показать аптеки на карте'}
           </button>
           {showMap && (
             <div className="fade-in" style={{marginTop: '16px'}}>
@@ -472,37 +493,45 @@ const App = () => {
         </div>
       </Sheet>
 
-      <Sheet id="scanner" title="Сканер Data Matrix" active={activeSheet} onClose={() => { setActiveSheet(null); stopScanner(); }}>
-        {!scanResult ? (
+      <Sheet id="scanner" title="Сканирование Честного Знака" active={activeSheet} onClose={() => { setActiveSheet(null); stopScanner(); }}>
+        <p style={{fontSize: '14px', opacity: 0.6, marginTop:'-16px', marginBottom: '24px'}}>
+            Наведите камеру на Честный Знак с упаковки лекарства. Сканирование может занять несколько секунд.
+        </p>
+        {!scanResult && !scanError ? (
           <div className="fade-in">
              <div className="scanner-viewbox">
                 <video ref={videoRef} playsInline />
                 <div className="scanner-overlay-rect" />
                 <div className="scanner-laser" />
              </div>
-             {loading && <div className="scanner-status">Обработка...</div>}
-             {scanError && <div className="scanner-status" style={{color:'red'}}>{scanError}</div>}
+             <div className="scanner-status-bar">
+                {loading ? 'Обработка...' : 'Сканирование запущено...'}
+             </div>
              <div className="form-group" style={{marginTop:'20px'}}>
                <button className="btn-primary" onClick={handleSmartSnapshot}>Умный снимок</button>
-               {hasTorch && (
-                 <button className="btn-secondary-outline" onClick={() => {
-                   const track = videoRef.current.srcObject.getVideoTracks()[0];
-                   track.applyConstraints({ advanced: [{ torch: !isTorchOn }] });
-                   setIsTorchOn(!isTorchOn);
-                 }}>{isTorchOn ? 'Выключить свет' : 'Включить свет'}</button>
-               )}
              </div>
           </div>
-        ) : (
-          <div className="result-box fade-in">
-            <span className="status-badge">{decodeStatus(scanResult.data.status)}</span>
-            <h3>{scanResult.data.productName || scanResult.data.drugsData?.prodDescLabel}</h3>
-            <div style={{marginTop:'12px', fontSize:'14px', color:'#666'}}>
-               <p>Производитель: {scanResult.data.producerName || scanResult.data.drugsData?.packingName || '—'}</p>
-               <p>Годен до: {scanResult.data.expDate || scanResult.data.drugsData?.expirationDate || '—'}</p>
+        ) : scanResult ? (
+          <div className="result-box-premium fade-in">
+            <span className="status-badge-ok">Сканирование выполнено</span>
+            <div className="res-card" style={{marginTop:'16px'}}>
+                <div style={{display:'flex', justifyContent:'space-between', alignItems:'baseline'}}>
+                    <h3>{scanResult.data.productName || scanResult.data.drugsData?.prodDescLabel}</h3>
+                    <button style={{background:'none', border:'none', color:'#BCBCBC', fontSize:'12px'}}>Изменить</button>
+                </div>
+                <p style={{fontSize:'12px', opacity:0.6}}>Годен до: {scanResult.data.expDate || scanResult.data.drugsData?.expirationDate || '—'}</p>
             </div>
-            <button className="btn-primary" style={{marginTop:'20px'}} onClick={() => addToKit(scanResult.data)}>Добавить в аптечку</button>
-            <button className="btn-secondary-outline" style={{marginTop:'8px'}} onClick={() => setScanResult(null)}>Сканировать ещё</button>
+            <button className="btn-primary" style={{marginTop:'24px'}} onClick={() => addToKit(scanResult.data)}>Добавить лекарство</button>
+            <button className="btn-secondary-outline" style={{marginTop:'12px', border:'none', background:'none'}} onClick={() => { setScanResult(null); startScanner(); }}>Сканировать ещё</button>
+          </div>
+        ) : (
+          <div className="result-box-premium fade-in">
+            <span className="status-badge-error">Сканирование не выполнено</span>
+            <div className="res-card" style={{marginTop:'16px'}}>
+                <h3>Лекарство не найдено</h3>
+            </div>
+            <button className="btn-primary" style={{marginTop:'24px'}} onClick={() => { setScanError(null); setActiveSheet('addMed'); }}>Добавить вручную</button>
+            <button className="btn-secondary-outline" style={{marginTop:'12px', border:'none', background:'none'}} onClick={() => { setScanError(null); startScanner(); }}>Попробовать снова</button>
           </div>
         )}
       </Sheet>
