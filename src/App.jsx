@@ -93,6 +93,7 @@ const App = () => {
         }
       })
       .catch(() => {
+        // Если /api/geo недоступен — не блокируем, даём пройти
         setIsRussianIp(true);
         setVpnWarningVisible(false);
         if (onSuccess) onSuccess();
