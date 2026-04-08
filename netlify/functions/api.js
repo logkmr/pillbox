@@ -157,6 +157,31 @@ export const handler = async (event, context) => {
     }
   }
 
+  // Геолокация клиента по IP (server-side, без CORS)
+  if ((path === '/geo' || path === 'geo') && event.httpMethod === 'GET') {
+    try {
+      const clientIp = (event.headers['x-forwarded-for'] || '').split(',')[0].trim()
+        || event.headers['client-ip']
+        || '';
+
+      let country = 'RU'; // fallback
+      if (clientIp) {
+        const geoRes = await fetchWithTimeout(`https://ipapi.co/${clientIp}/country/`);
+        if (geoRes.ok) {
+          country = (await geoRes.text()).trim();
+        }
+      }
+
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({ country })
+      };
+    } catch (e) {
+      return { statusCode: 200, headers, body: JSON.stringify({ country: 'RU' }) };
+    }
+  }
+
   if ((path === '/scan' || path === 'scan') && event.httpMethod === 'POST') {
     return {
       statusCode: 501,

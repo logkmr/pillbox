@@ -82,10 +82,10 @@ const App = () => {
 
   const checkIp = (onSuccess) => {
     setIpChecking(true);
-    fetch('https://ipapi.co/json/')
+    fetch('/api/geo')
       .then(r => r.json())
       .then(d => {
-        const isRu = d.country_code === 'RU';
+        const isRu = d.country === 'RU';
         setIsRussianIp(isRu);
         if (isRu) {
           setVpnWarningVisible(false);
@@ -93,7 +93,6 @@ const App = () => {
         }
       })
       .catch(() => {
-        // Если сервис недоступен — не блокируем сканер
         setIsRussianIp(true);
         setVpnWarningVisible(false);
         if (onSuccess) onSuccess();
