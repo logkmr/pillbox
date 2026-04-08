@@ -75,6 +75,10 @@ const App = () => {
   const [searchResults, setSearchResults] = useState([]);
   const [showMap, setShowMap] = useState(false);
 
+  // VPN / geo warning
+  const [isRussianIp, setIsRussianIp] = useState(true);
+  const [vpnWarningVisible, setVpnWarningVisible] = useState(false);
+
   // Refs
   const videoRef = useRef(null);
   const codeReaderRef = useRef(null);
@@ -89,6 +93,12 @@ const App = () => {
 
     const savedIntakes = localStorage.getItem(STORAGE_KEYS.INTAKES);
     if (savedIntakes) setIntakes(JSON.parse(savedIntakes));
+
+    // Определяем страну по IP (без ключа, бесплатно)
+    fetch('https://ip-api.com/json/?fields=countryCode')
+      .then(r => r.json())
+      .then(d => { if (d.countryCode !== 'RU') setIsRussianIp(false); })
+      .catch(() => { /* не критично — по умолчанию считаем RU */ });
   }, []);
 
   const saveProfile = (newProfile) => {
@@ -392,7 +402,14 @@ const App = () => {
         </div>
         
         <div className="nav-item" style={{ flex: 0 }}>
-          <button className="nav-fab" onClick={() => { setActiveSheet('scanner'); startScanner(); }}>+</button>
+          <button className="nav-fab" onClick={() => {
+            if (!isRussianIp) {
+              setVpnWarningVisible(true);
+              return;
+            }
+            setActiveSheet('scanner');
+            startScanner();
+          }}>+</button>
           <span className="nav-label">Сканер</span>
         </div>
         
@@ -591,6 +608,41 @@ const App = () => {
           </div>
         )}
       </Sheet>
+
+      {/* VPN-предупреждение */}
+      {vpnWarningVisible && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
+          display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+          zIndex: 9999, padding: '0 16px 32px'
+        }} onClick={() => setVpnWarningVisible(false)}>
+          <div style={{
+            background: '#1C1C1E', borderRadius: '20px', padding: '24px',
+            width: '100%', maxWidth: '420px', textAlign: 'center'
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{fontSize: '40px', marginBottom: '12px'}}>🌍</div>
+            <h3 style={{margin: '0 0 8px', fontSize: '17px', fontWeight: 700}}>
+              Сканер недоступен
+            </h3>
+            <p style={{margin: '0 0 20px', fontSize: '14px', color: '#8E8E93', lineHeight: 1.5}}>
+              Обнаружен не российский IP-адрес. Сканер работает только без VPN — выключите его и попробуйте снова.
+            </p>
+            <button className="btn-primary" style={{marginBottom: '10px'}} onClick={() => {
+              setVpnWarningVisible(false);
+              setActiveSheet('scanner');
+              startScanner();
+            }}>
+              Всё равно попробовать
+            </button>
+            <button style={{
+              background: 'none', border: 'none', color: '#8E8E93',
+              fontSize: '14px', cursor: 'pointer', width: '100%', padding: '8px'
+            }} onClick={() => setVpnWarningVisible(false)}>
+              Закрыть
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
