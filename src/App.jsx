@@ -161,12 +161,45 @@ const App = () => {
   const fetchProductInfo = async (decodedText) => {
     setLoading(true);
     stopScanner();
+
+    // Извлечь CIS из URL-формата QR-кода (https://...?cis=01...)
+    let cis = decodedText.trim();
     try {
-      const response = await fetch(getApiUrl('scan-text'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: decodedText.trim() }),
-      });
+      const urlObj = new URL(cis);
+      const cisParam = urlObj.searchParams.get('cis');
+      if (cisParam) cis = cisParam;
+    } catch { /* не URL */ }
+
+    const withTimeout = (promise, ms) =>
+      Promise.race([promise, new Promise((_, r) => setTimeout(() => r(new Error('timeout')), ms))]);
+
+    try {
+      // Попытка 1: прямой запрос из браузера (IP пользователя, обходит геоблок Netlify)
+      try {
+        const res = await withTimeout(
+          fetch(`https://mobile.api.crpt.ru/mobile/check?cis=${encodeURIComponent(cis)}`, {
+            headers: { 'Accept': 'application/json' }
+          }),
+          6000
+        );
+        if (res.ok) {
+          const data = await res.json();
+          setScanResult({ success: true, cis, data });
+          return;
+        }
+      } catch (e) {
+        console.log('Direct browser call failed:', e.message);
+      }
+
+      // Попытка 2: через Netlify-функцию (запасной вариант)
+      const response = await withTimeout(
+        fetch(getApiUrl('scan-text'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: cis }),
+        }),
+        20000
+      );
       const data = await response.json();
       if (data.success) {
         setScanResult(data);
@@ -174,7 +207,7 @@ const App = () => {
         setScanError(data.error);
       }
     } catch (err) {
-      setScanError(' Ошибка сервера: ' + err.message);
+      setScanError('Ошибка сервера: ' + err.message);
     } finally {
       setLoading(false);
     }
