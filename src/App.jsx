@@ -621,7 +621,7 @@ const App = () => {
             width: '100%', maxWidth: '420px', textAlign: 'center'
           }} onClick={e => e.stopPropagation()}>
             <div style={{fontSize: '40px', marginBottom: '12px'}}>🌍</div>
-            <h3 style={{margin: '0 0 8px', fontSize: '17px', fontWeight: 700}}>
+            <h3 style={{margin: '0 0 8px', fontSize: '17px', fontWeight: 700, color: '#ffffff'}}>
               Сканер недоступен
             </h3>
             <p style={{margin: '0 0 20px', fontSize: '14px', color: '#EBEBF5', lineHeight: 1.5}}>
