@@ -78,6 +78,24 @@ const App = () => {
   // VPN / geo warning
   const [isRussianIp, setIsRussianIp] = useState(true);
   const [vpnWarningVisible, setVpnWarningVisible] = useState(false);
+  const [ipChecking, setIpChecking] = useState(false);
+
+  const checkIp = () => {
+    setIpChecking(true);
+    fetch('https://ip-api.com/json/?fields=countryCode')
+      .then(r => r.json())
+      .then(d => {
+        const isRu = d.countryCode === 'RU';
+        setIsRussianIp(isRu);
+        if (isRu) {
+          setVpnWarningVisible(false);
+          setActiveSheet('scanner');
+          startScanner();
+        }
+      })
+      .catch(() => { setIsRussianIp(true); })
+      .finally(() => setIpChecking(false));
+  };
 
   // Refs
   const videoRef = useRef(null);
@@ -94,11 +112,7 @@ const App = () => {
     const savedIntakes = localStorage.getItem(STORAGE_KEYS.INTAKES);
     if (savedIntakes) setIntakes(JSON.parse(savedIntakes));
 
-    // Определяем страну по IP (без ключа, бесплатно)
-    fetch('https://ip-api.com/json/?fields=countryCode')
-      .then(r => r.json())
-      .then(d => { if (d.countryCode !== 'RU') setIsRussianIp(false); })
-      .catch(() => { /* не критично — по умолчанию считаем RU */ });
+    checkIp();
   }, []);
 
   const saveProfile = (newProfile) => {
@@ -627,12 +641,8 @@ const App = () => {
             <p style={{margin: '0 0 20px', fontSize: '14px', color: '#EBEBF5', lineHeight: 1.5}}>
               Обнаружен не российский IP-адрес. Сканер работает только без VPN — выключите его и попробуйте снова.
             </p>
-            <button className="btn-primary" style={{marginBottom: '10px'}} onClick={() => {
-              setVpnWarningVisible(false);
-              setActiveSheet('scanner');
-              startScanner();
-            }}>
-              Всё равно попробовать
+            <button className="btn-primary" style={{marginBottom: '10px'}} onClick={checkIp} disabled={ipChecking}>
+              {ipChecking ? 'Проверяем...' : 'Обновить'}
             </button>
             <button style={{
               background: 'none', border: 'none', color: '#ffffff',
