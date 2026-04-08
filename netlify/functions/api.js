@@ -1,12 +1,10 @@
 
 export const handler = async (event, context) => {
-  // Более гибкое определение пути: берем только правую часть после /api или имени функции
   const fullPath = event.path || '';
   const path = fullPath.toLowerCase().replace(/^.*?\/(api|functions\/api)/, '');
   
   console.log(`[Function] Method: ${event.httpMethod}, FullPath: ${fullPath}, CleanPath: ${path}`);
   
-  // CORS Headers
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type',
@@ -17,7 +15,6 @@ export const handler = async (event, context) => {
     return { statusCode: 200, headers, body: '' };
   }
 
-  // Роут для получения инфо по тексту (коду)
   if ((path === '/scan-text' || path === 'scan-text') && event.httpMethod === 'POST') {
     try {
       const { text } = JSON.parse(event.body);
@@ -30,25 +27,94 @@ export const handler = async (event, context) => {
       }
 
       console.log(`Checking code: ${text}`);
-      
-      const url = `https://mobile.api.crpt.ru/mobile/check?cis=${encodeURIComponent(text)}`;
-      const response = await fetch(url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-          'Accept': 'application/json'
-        }
-      });
 
-      if (!response.ok) {
-        throw new Error(`CRPT API error: ${response.status}`);
+      // ── Попытка 1: CDN API (актуальный публичный эндпоинт, работает без авторизации) ──
+      try {
+        const cdnResponse = await fetch('https://cdn01.crpt.ru/api/v4/true-api/cises/short/list', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 Chrome/124 Mobile Safari/537.36',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify({ cises: [text] })
+        });
+
+        if (cdnResponse.ok) {
+          const cdnData = await cdnResponse.json();
+          const codeInfo = cdnData.codes?.[0];
+
+          if (codeInfo && codeInfo.found) {
+            // Форматируем дату из ISO в ДД.ММ.ГГГГ
+            let expDate = '—';
+            if (codeInfo.expireDate) {
+              const d = new Date(codeInfo.expireDate);
+              expDate = [
+                String(d.getDate()).padStart(2, '0'),
+                String(d.getMonth() + 1).padStart(2, '0'),
+                d.getFullYear()
+              ].join('.');
+            }
+
+            const normalizedData = {
+              productName: codeInfo.productName || `Лекарство (GTIN: ${codeInfo.gtin || '?'})`,
+              expDate,
+              gtin: codeInfo.gtin,
+              batch: codeInfo.batch || '—',
+              status: codeInfo.utilised ? 'INTRODUCED' : 'EMITTED',
+              valid: codeInfo.valid,
+              found: codeInfo.found,
+              source: 'cdn'
+            };
+
+            console.log(`[CDN API] Found: gtin=${normalizedData.gtin}, exp=${normalizedData.expDate}`);
+            return {
+              statusCode: 200,
+              headers,
+              body: JSON.stringify({ success: true, cis: text, data: normalizedData })
+            };
+          }
+          console.log(`[CDN API] Code not found in response`);
+        } else {
+          console.log(`[CDN API] Non-OK response: ${cdnResponse.status}`);
+        }
+      } catch (cdnErr) {
+        console.log(`[CDN API] Failed: ${cdnErr.message}`);
       }
 
-      const data = await response.json();
-      
+      // ── Попытка 2: mobile.api.crpt.ru (старый эндпоинт, как запасной) ──
+      try {
+        const mobileUrl = `https://mobile.api.crpt.ru/mobile/check?cis=${encodeURIComponent(text)}`;
+        const mobileResponse = await fetch(mobileUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 Chrome/124 Mobile Safari/537.36',
+            'Accept': 'application/json'
+          }
+        });
+
+        if (mobileResponse.ok) {
+          const mobileData = await mobileResponse.json();
+          console.log(`[Mobile API] Success`);
+          return {
+            statusCode: 200,
+            headers,
+            body: JSON.stringify({ success: true, cis: text, data: mobileData })
+          };
+        } else {
+          console.log(`[Mobile API] Non-OK response: ${mobileResponse.status}`);
+        }
+      } catch (mobileErr) {
+        console.log(`[Mobile API] Failed: ${mobileErr.message}`);
+      }
+
+      // ── Оба API недоступны ──
       return {
-        statusCode: 200,
+        statusCode: 503,
         headers,
-        body: JSON.stringify({ success: true, cis: text, data })
+        body: JSON.stringify({
+          success: false,
+          error: 'Сервисы Честного знака временно недоступны. Попробуйте позже или добавьте лекарство вручную.'
+        })
       };
 
     } catch (error) {
@@ -61,7 +127,6 @@ export const handler = async (event, context) => {
     }
   }
 
-  // Роут для сканирования изображения (заглушка или легкая реализация)
   if ((path === '/scan' || path === 'scan') && event.httpMethod === 'POST') {
     return {
       statusCode: 501,
