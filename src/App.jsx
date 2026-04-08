@@ -80,20 +80,24 @@ const App = () => {
   const [vpnWarningVisible, setVpnWarningVisible] = useState(false);
   const [ipChecking, setIpChecking] = useState(false);
 
-  const checkIp = () => {
+  const checkIp = (onSuccess) => {
     setIpChecking(true);
-    fetch('https://ip-api.com/json/?fields=countryCode')
+    fetch('https://ipapi.co/json/')
       .then(r => r.json())
       .then(d => {
-        const isRu = d.countryCode === 'RU';
+        const isRu = d.country_code === 'RU';
         setIsRussianIp(isRu);
         if (isRu) {
           setVpnWarningVisible(false);
-          setActiveSheet('scanner');
-          startScanner();
+          if (onSuccess) onSuccess();
         }
       })
-      .catch(() => { setIsRussianIp(true); })
+      .catch(() => {
+        // Если сервис недоступен — не блокируем сканер
+        setIsRussianIp(true);
+        setVpnWarningVisible(false);
+        if (onSuccess) onSuccess();
+      })
       .finally(() => setIpChecking(false));
   };
 
@@ -112,7 +116,7 @@ const App = () => {
     const savedIntakes = localStorage.getItem(STORAGE_KEYS.INTAKES);
     if (savedIntakes) setIntakes(JSON.parse(savedIntakes));
 
-    checkIp();
+    checkIp(null);
   }, []);
 
   const saveProfile = (newProfile) => {
@@ -641,7 +645,7 @@ const App = () => {
             <p style={{margin: '0 0 20px', fontSize: '14px', color: '#EBEBF5', lineHeight: 1.5}}>
               Обнаружен не российский IP-адрес. Сканер работает только без VPN — выключите его и попробуйте снова.
             </p>
-            <button className="btn-primary" style={{marginBottom: '10px'}} onClick={checkIp} disabled={ipChecking}>
+            <button className="btn-primary" style={{marginBottom: '10px'}} onClick={() => checkIp(() => { setActiveSheet('scanner'); startScanner(); })} disabled={ipChecking}>
               {ipChecking ? 'Проверяем...' : 'Обновить'}
             </button>
             <button style={{
