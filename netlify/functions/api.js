@@ -1,9 +1,89 @@
 
+const TIMEOUT_MS = 5000;
+
+const fetchWithTimeout = (url, options = {}) => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  return fetch(url, { ...options, signal: controller.signal })
+    .finally(() => clearTimeout(timer));
+};
+
+const mobileHeaders = {
+  'User-Agent': 'Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Mobile Safari/537.36',
+  'Accept': 'application/json'
+};
+
+// ── CDN API ──
+const tryCdnApi = async (cis) => {
+  const res = await fetchWithTimeout('https://cdn01.crpt.ru/api/v4/true-api/cises/short/list', {
+    method: 'POST',
+    headers: { ...mobileHeaders, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ cises: [cis] })
+  });
+  console.log(`[CDN] ${res.status}`);
+  if (!res.ok) return null;
+
+  const data = await res.json();
+  const info = data.codes?.[0];
+  if (!info?.found) return null;
+
+  let expDate = '—';
+  if (info.expireDate) {
+    const d = new Date(info.expireDate);
+    expDate = `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.${d.getFullYear()}`;
+  }
+  return {
+    productName: info.productName || `Лекарство (GTIN: ${info.gtin || '?'})`,
+    expDate,
+    gtin: info.gtin,
+    batch: info.batch || '—',
+    status: info.utilised ? 'INTRODUCED' : 'EMITTED',
+    found: true,
+    source: 'cdn'
+  };
+};
+
+// ── Mobile API (прямой) ──
+const tryMobileApi = async (cis) => {
+  const res = await fetchWithTimeout(
+    `https://mobile.api.crpt.ru/mobile/check?cis=${encodeURIComponent(cis)}`,
+    { headers: mobileHeaders }
+  );
+  console.log(`[Mobile] ${res.status}`);
+  if (!res.ok) return null;
+  return { ...(await res.json()), source: 'mobile' };
+};
+
+// ── Прокси через allorigins.win ──
+const tryProxyMobileApi = async (cis) => {
+  const target = `https://mobile.api.crpt.ru/mobile/check?cis=${encodeURIComponent(cis)}`;
+  const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(target)}`;
+  const res = await fetchWithTimeout(proxyUrl);
+  console.log(`[Proxy] ${res.status}`);
+  if (!res.ok) return null;
+
+  const wrapper = await res.json();
+  if (!wrapper.contents) return null;
+
+  const inner = JSON.parse(wrapper.contents);
+  return { ...inner, source: 'proxy' };
+};
+
+// ── Прокси через corsproxy.io ──
+const tryCorsproxy = async (cis) => {
+  const target = `https://mobile.api.crpt.ru/mobile/check?cis=${encodeURIComponent(cis)}`;
+  const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(target)}`;
+  const res = await fetchWithTimeout(proxyUrl, { headers: mobileHeaders });
+  console.log(`[Corsproxy] ${res.status}`);
+  if (!res.ok) return null;
+  return { ...(await res.json()), source: 'corsproxy' };
+};
+
 export const handler = async (event, context) => {
   const fullPath = event.path || '';
   const path = fullPath.toLowerCase().replace(/^.*?\/(api|functions\/api)/, '');
 
-  console.log(`[Function] Method: ${event.httpMethod}, FullPath: ${fullPath}, CleanPath: ${path}`);
+  console.log(`[Function] ${event.httpMethod} ${path}`);
 
   const headers = {
     'Access-Control-Allow-Origin': '*',
@@ -19,109 +99,45 @@ export const handler = async (event, context) => {
     try {
       const { text } = JSON.parse(event.body);
       if (!text) {
-        return {
-          statusCode: 400,
-          headers,
-          body: JSON.stringify({ success: false, error: 'No text provided' })
-        };
+        return { statusCode: 400, headers, body: JSON.stringify({ success: false, error: 'No text provided' }) };
       }
 
-      // Если QR-код содержит URL — извлекаем CIS из параметра
+      // Извлечь CIS из URL-формата (https://честныйзнак.рф/...?cis=01...)
       let cis = text.trim();
       try {
         const urlObj = new URL(cis);
         const cisParam = urlObj.searchParams.get('cis');
         if (cisParam) {
           cis = cisParam;
-          console.log(`[Function] Extracted CIS from URL: ${cis}`);
+          console.log(`[Function] CIS extracted from URL`);
         }
-      } catch {
-        // Не URL — используем как есть
-      }
+      } catch { /* не URL */ }
 
-      console.log(`[Function] Checking CIS: ${cis}`);
+      console.log(`[Function] CIS: ${cis.slice(0, 40)}...`);
 
-      const mobileHeaders = {
-        'User-Agent': 'Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Mobile Safari/537.36',
-        'Accept': 'application/json'
-      };
+      const attempts = [
+        ['CDN', tryCdnApi],
+        ['Mobile', tryMobileApi],
+        ['Proxy(allorigins)', tryProxyMobileApi],
+        ['Proxy(corsproxy)', tryCorsproxy],
+      ];
 
-      // ── Попытка 1: CDN API ──
-      try {
-        const cdnResponse = await fetch('https://cdn01.crpt.ru/api/v4/true-api/cises/short/list', {
-          method: 'POST',
-          headers: { ...mobileHeaders, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ cises: [cis] })
-        });
-
-        console.log(`[CDN API] Status: ${cdnResponse.status}`);
-
-        if (cdnResponse.ok) {
-          const cdnData = await cdnResponse.json();
-          const codeInfo = cdnData.codes?.[0];
-
-          if (codeInfo && codeInfo.found) {
-            let expDate = '—';
-            if (codeInfo.expireDate) {
-              const d = new Date(codeInfo.expireDate);
-              expDate = [
-                String(d.getDate()).padStart(2, '0'),
-                String(d.getMonth() + 1).padStart(2, '0'),
-                d.getFullYear()
-              ].join('.');
-            }
-
-            const normalizedData = {
-              productName: codeInfo.productName || `Лекарство (GTIN: ${codeInfo.gtin || '?'})`,
-              expDate,
-              gtin: codeInfo.gtin,
-              batch: codeInfo.batch || '—',
-              status: codeInfo.utilised ? 'INTRODUCED' : 'EMITTED',
-              valid: codeInfo.valid,
-              found: codeInfo.found,
-              source: 'cdn'
-            };
-
-            console.log(`[CDN API] Found: gtin=${normalizedData.gtin}, exp=${normalizedData.expDate}`);
+      for (const [name, fn] of attempts) {
+        try {
+          const data = await fn(cis);
+          if (data) {
+            console.log(`[Function] Success via ${name}`);
             return {
               statusCode: 200,
               headers,
-              body: JSON.stringify({ success: true, cis, data: normalizedData })
+              body: JSON.stringify({ success: true, cis, data })
             };
           }
-          console.log(`[CDN API] Code not found in response`);
-        } else {
-          const errText = await cdnResponse.text().catch(() => '');
-          console.log(`[CDN API] Non-OK: ${cdnResponse.status} — ${errText.slice(0, 200)}`);
+        } catch (e) {
+          console.log(`[${name}] Error: ${e.name === 'AbortError' ? 'timeout' : e.message}`);
         }
-      } catch (cdnErr) {
-        console.log(`[CDN API] Failed: ${cdnErr.message}`);
       }
 
-      // ── Попытка 2: mobile.api.crpt.ru ──
-      try {
-        const mobileUrl = `https://mobile.api.crpt.ru/mobile/check?cis=${encodeURIComponent(cis)}`;
-        const mobileResponse = await fetch(mobileUrl, { headers: mobileHeaders });
-
-        console.log(`[Mobile API] Status: ${mobileResponse.status}`);
-
-        if (mobileResponse.ok) {
-          const mobileData = await mobileResponse.json();
-          console.log(`[Mobile API] Success`);
-          return {
-            statusCode: 200,
-            headers,
-            body: JSON.stringify({ success: true, cis, data: mobileData })
-          };
-        } else {
-          const errText = await mobileResponse.text().catch(() => '');
-          console.log(`[Mobile API] Non-OK: ${mobileResponse.status} — ${errText.slice(0, 200)}`);
-        }
-      } catch (mobileErr) {
-        console.log(`[Mobile API] Failed: ${mobileErr.message}`);
-      }
-
-      // ── Оба API недоступны ──
       return {
         statusCode: 503,
         headers,
@@ -152,9 +168,5 @@ export const handler = async (event, context) => {
     };
   }
 
-  return {
-    statusCode: 404,
-    headers,
-    body: JSON.stringify({ error: 'Not Found' })
-  };
+  return { statusCode: 404, headers, body: JSON.stringify({ error: 'Not Found' }) };
 };
