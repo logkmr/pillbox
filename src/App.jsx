@@ -624,7 +624,7 @@ const App = () => {
             <h3 style={{margin: '0 0 8px', fontSize: '17px', fontWeight: 700}}>
               Сканер недоступен
             </h3>
-            <p style={{margin: '0 0 20px', fontSize: '14px', color: '#8E8E93', lineHeight: 1.5}}>
+            <p style={{margin: '0 0 20px', fontSize: '14px', color: '#EBEBF5', lineHeight: 1.5}}>
               Обнаружен не российский IP-адрес. Сканер работает только без VPN — выключите его и попробуйте снова.
             </p>
             <button className="btn-primary" style={{marginBottom: '10px'}} onClick={() => {
@@ -635,11 +635,12 @@ const App = () => {
               Всё равно попробовать
             </button>
             <button style={{
-              background: 'none', border: 'none', color: '#8E8E93',
-              fontSize: '14px', cursor: 'pointer', width: '100%', padding: '8px'
+              background: 'none', border: 'none', color: '#ffffff',
+              fontSize: '15px', cursor: 'pointer', width: '100%', padding: '8px'
             }} onClick={() => setVpnWarningVisible(false)}>
               Закрыть
             </button>
+
           </div>
         </div>
       )}
